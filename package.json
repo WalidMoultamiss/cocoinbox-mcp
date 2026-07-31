@@ -10,7 +10,8 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "start:http": "tsx src/http.ts",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/http.ts",
+    "dev:stdio": "tsx watch src/index.ts"
   },
   "engines": {
     "node": ">=18"
