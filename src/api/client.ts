@@ -147,6 +147,25 @@ export async function sendMail(input: SendEmailInput): Promise<unknown> {
   });
 }
 
+export type SentEmailItem = {
+  id?: string;
+  _id?: string;
+  to?: string;
+  subject?: string;
+  folder?: string;
+  sent_at?: string;
+};
+
+export async function listSentEmails(): Promise<SentEmailItem[]> {
+  const data = await request<SentEmailItem[] | { items?: SentEmailItem[] }>(
+    '/api/mail/sent',
+    { method: 'GET' }
+  );
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.items)) return data.items;
+  return [];
+}
+
 export async function getPrivacyScore(): Promise<unknown> {
   return request('/api/security/score', { method: 'GET' });
 }

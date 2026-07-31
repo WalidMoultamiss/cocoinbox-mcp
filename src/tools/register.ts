@@ -426,7 +426,7 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'send_email',
-    'Send an email via POST /api/mail/send using the selected From address.',
+    'Send an email via POST /api/mail/send using the selected From address. Automatically moves the sent message into the "MCP" dossier.',
     {
       to: z.string().min(1),
       subject: z.string().min(1),
@@ -436,6 +436,10 @@ export function registerTools(server: McpServer): void {
       fromEmailId: z.string().optional(),
       isGhostMode: z.boolean().optional(),
       isTrackingEnabled: z.boolean().optional(),
+      folder: z
+        .string()
+        .optional()
+        .describe('Dossier to move the sent mail into (default: MCP)'),
     },
     async (args) => {
       try {
@@ -448,6 +452,15 @@ export function registerTools(server: McpServer): void {
           );
         }
         const text = args.text ?? args.body;
+        const targetFolder = (args.folder || 'MCP').trim() || 'MCP';
+
+        // Ensure the MCP dossier exists (ignore "already exists")
+        try {
+          await api.createFolder(targetFolder);
+        } catch {
+          /* folder may already exist */
+        }
+
         const result = await api.sendMail({
           to: args.to,
           subject: args.subject,
@@ -457,10 +470,36 @@ export function registerTools(server: McpServer): void {
           isGhostMode: args.isGhostMode,
           isTrackingEnabled: args.isTrackingEnabled,
         });
+
+        let moved: unknown = null;
+        let sentMessageId: string | null = null;
+        try {
+          // Send API does not return id — pick the newest matching sent item
+          const sent = await api.listSentEmails();
+          const match = sent.find(
+            (m) =>
+              String(m.to || '').toLowerCase() === args.to.toLowerCase() &&
+              String(m.subject || '') === args.subject
+          ) || sent[0];
+          sentMessageId = match
+            ? String(match.id || match._id || '')
+            : null;
+          if (sentMessageId) {
+            moved = await api.moveMessageToFolder(sentMessageId, targetFolder);
+          }
+        } catch (moveErr) {
+          moved = {
+            error: moveErr instanceof Error ? moveErr.message : String(moveErr),
+          };
+        }
+
         return ok({
           sent: true,
           fromEmailId,
           selectedEmailAddress: getSession().selectedEmailAddress,
+          folder: targetFolder,
+          sentMessageId,
+          moved,
           result,
         });
       } catch (err) {
