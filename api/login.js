@@ -4,6 +4,8 @@ const LOGIN_HTML = `<!DOCTYPE html>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CocoInbox MCP Login</title>
+  <link rel="icon" href="/icon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <style>
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
@@ -20,7 +22,9 @@ const LOGIN_HTML = `<!DOCTYPE html>
       border: 1px solid rgba(20,33,43,0.08);
       box-shadow: 0 18px 50px rgba(20,33,43,0.08);
     }
-    h1 { margin: 0 0 0.35rem; font-size: 1.55rem; letter-spacing: -0.02em; }
+    .brand { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .brand img { width: 48px; height: 48px; object-fit: contain; }
+    h1 { margin: 0; font-size: 1.55rem; letter-spacing: -0.02em; }
     p { margin: 0 0 1.4rem; color: #4a5a66; font-size: 0.95rem; line-height: 1.45; }
     label { display: block; font-size: 0.8rem; font-weight: 600; margin: 0.85rem 0 0.35rem; }
     input {
@@ -38,7 +42,10 @@ const LOGIN_HTML = `<!DOCTYPE html>
 </head>
 <body>
   <main>
-    <h1>CocoInbox</h1>
+    <div class="brand">
+      <img src="/icon.png" alt="CocoInbox" width="48" height="48" />
+      <h1>CocoInbox</h1>
+    </div>
     <p>Sign in to connect this MCP session. Your password stays in this form — not in the AI chat.</p>
     <form method="POST" action="/api/auth-form">
       <label for="email">Email</label>
