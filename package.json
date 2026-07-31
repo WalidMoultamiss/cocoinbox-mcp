@@ -1,0 +1,27 @@
+{
+  "name": "cocoinbox-mcp-server",
+  "version": "1.0.0",
+  "description": "CocoInbox MCP server — thin wrapper over the existing REST API",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "cocoinbox-mcp": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "start:http": "tsx src/http.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
