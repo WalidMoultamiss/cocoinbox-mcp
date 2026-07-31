@@ -4,8 +4,14 @@ const LOGIN_HTML = `<!DOCTYPE html>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CocoInbox MCP Login</title>
-  <link rel="icon" href="/icon.png" type="image/png" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="/icon.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="/icon.png" sizes="192x192" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta property="og:image" content="https://cocoinbox-mcp.vercel.app/icon.png" />
+  <meta name="theme-color" content="#14212b" />
   <style>
     :root { color-scheme: light; }
     * { box-sizing: border-box; }
@@ -23,7 +29,7 @@ const LOGIN_HTML = `<!DOCTYPE html>
       box-shadow: 0 18px 50px rgba(20,33,43,0.08);
     }
     .brand { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
-    .brand img { width: 48px; height: 48px; object-fit: contain; }
+    .brand img { width: 56px; height: 56px; object-fit: contain; }
     h1 { margin: 0; font-size: 1.55rem; letter-spacing: -0.02em; }
     p { margin: 0 0 1.4rem; color: #4a5a66; font-size: 0.95rem; line-height: 1.45; }
     label { display: block; font-size: 0.8rem; font-weight: 600; margin: 0.85rem 0 0.35rem; }
@@ -43,7 +49,7 @@ const LOGIN_HTML = `<!DOCTYPE html>
 <body>
   <main>
     <div class="brand">
-      <img src="/icon.png" alt="CocoInbox" width="48" height="48" />
+      <img src="/icon.png" alt="CocoInbox" width="56" height="56" />
       <h1>CocoInbox</h1>
     </div>
     <p>Sign in to connect this MCP session. Your password stays in this form — not in the AI chat.</p>

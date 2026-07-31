@@ -1,9 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import {
+  ICON_DATA_URI,
+  ICON_PNG_URL,
+  SITE_LOGO_URL,
+  WEBSITE_URL,
+} from './brand-icon.js';
 import { registerTools } from './tools/register.js';
 import { VERSION } from './version.js';
-
-const ICON_URL = 'https://cocoinbox-mcp.vercel.app/icon.png';
-const SITE_LOGO = 'https://www.cocoinbox.com/imgForLandingPage/Logo.png';
 
 export function createServer(): McpServer {
   const server = new McpServer({
@@ -11,15 +14,20 @@ export function createServer(): McpServer {
     version: `${VERSION}.0.0`,
     title: 'CocoInbox',
     description: 'CocoInbox MCP — secure ephemeral email, privacy score, and dark web tools',
-    websiteUrl: 'https://www.cocoinbox.com/',
+    websiteUrl: WEBSITE_URL,
     icons: [
       {
-        src: ICON_URL,
+        src: ICON_DATA_URI,
         mimeType: 'image/png',
         sizes: ['any'],
       },
       {
-        src: SITE_LOGO,
+        src: ICON_PNG_URL,
+        mimeType: 'image/png',
+        sizes: ['48x48', '96x96', '192x192', '512x512'],
+      },
+      {
+        src: SITE_LOGO_URL,
         mimeType: 'image/png',
         sizes: ['any'],
       },

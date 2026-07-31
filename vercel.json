@@ -13,6 +13,8 @@
     { "src": "^/favicon\\.ico$", "dest": "/api/favicon.js" },
     { "src": "^/favicon\\.png$", "dest": "/api/favicon.js" },
     { "src": "^/apple-touch-icon\\.png$", "dest": "/api/apple-touch-icon.js" },
+    { "src": "^/site\\.webmanifest$", "dest": "/api/manifest.js" },
+    { "src": "^/manifest\\.webmanifest$", "dest": "/api/manifest.js" },
     { "src": "^/api/auth-form$", "dest": "/api/auth-form.js" },
     { "src": "^/mcp$", "dest": "/api/mcp.ts" }
   ]
