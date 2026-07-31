@@ -8,6 +8,8 @@
     { "src": "^/$", "dest": "/api/index.js" },
     { "src": "^/health$", "dest": "/api/health.js" },
     { "src": "^/version$", "dest": "/api/version.js" },
+    { "src": "^/login$", "dest": "/api/login.js" },
+    { "src": "^/api/auth-form$", "dest": "/api/auth-form.js" },
     { "src": "^/mcp$", "dest": "/api/mcp.ts" }
   ]
 }

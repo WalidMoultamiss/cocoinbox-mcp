@@ -64,13 +64,29 @@ async function main() {
       return;
     }
 
+    if (req.method === 'GET' && (path === '/login' || path === '/api/login')) {
+      void import('../api/login.js').then((m) => m.default(req, res));
+      return;
+    }
+
+    if (path === '/api/auth-form') {
+      const chunks: Buffer[] = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8');
+        (req as { body?: unknown }).body = raw;
+        void import('../api/auth-form.js').then((m) => m.default(req as never, res));
+      });
+      return;
+    }
+
     if (path === '/mcp') {
       void handleMcp(req, res);
       return;
     }
 
     res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Not found. Use /, /version, or /mcp' }));
+    res.end(JSON.stringify({ error: 'Not found. Use /, /login, /version, or /mcp' }));
   });
 
   httpServer.listen(PORT, HOST, () => {

@@ -146,3 +146,42 @@ export async function sendMail(input: SendEmailInput): Promise<unknown> {
     body: JSON.stringify(input),
   });
 }
+
+export async function getPrivacyScore(): Promise<unknown> {
+  return request('/api/security/score', { method: 'GET' });
+}
+
+export async function scanDarkWeb(email: string): Promise<unknown> {
+  return request('/api/security/dark-web-scan', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function scanDarkWebAll(): Promise<unknown> {
+  return request('/api/security/dark-web-scan-all', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function listFolders(): Promise<{ success?: boolean; folders?: string[] }> {
+  return request('/api/folders', { method: 'GET' });
+}
+
+export async function createFolder(name: string): Promise<{ success?: boolean; folders?: string[] }> {
+  return request('/api/folders', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function moveMessageToFolder(
+  messageId: string,
+  folder: string
+): Promise<unknown> {
+  return request(`/api/mail/messages/${messageId}/move`, {
+    method: 'PATCH',
+    body: JSON.stringify({ folder }),
+  });
+}
