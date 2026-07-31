@@ -14,7 +14,7 @@
     "dev:stdio": "tsx watch src/index.ts"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=20"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

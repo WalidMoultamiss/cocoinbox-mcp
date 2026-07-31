@@ -6,6 +6,7 @@
  *   → http://127.0.0.1:3100/mcp
  */
 import { createServer as createHttpServer } from 'node:http';
+import { VERSION } from './version.js';
 
 const PORT = Number(process.env.MCP_HTTP_PORT || 3100);
 const HOST = process.env.MCP_HTTP_HOST || '0.0.0.0';
@@ -47,13 +48,19 @@ async function main() {
 
     if (req.method === 'GET' && path === '/') {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Hello World');
+      res.end(`Hello World\nversion ${VERSION}`);
       return;
     }
 
     if (req.method === 'GET' && path === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, service: 'cocoinbox-mcp' }));
+      res.end(JSON.stringify({ ok: true, service: 'cocoinbox-mcp', version: VERSION }));
+      return;
+    }
+
+    if (req.method === 'GET' && path === '/version') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ version: VERSION, service: 'cocoinbox-mcp' }));
       return;
     }
 
@@ -63,11 +70,11 @@ async function main() {
     }
 
     res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Not found. Use / or /mcp' }));
+    res.end(JSON.stringify({ error: 'Not found. Use /, /version, or /mcp' }));
   });
 
   httpServer.listen(PORT, HOST, () => {
-    console.log(`CocoInbox MCP HTTP listening on http://127.0.0.1:${PORT}/`);
+    console.log(`CocoInbox MCP HTTP v${VERSION} listening on http://127.0.0.1:${PORT}/`);
   });
 }
 
