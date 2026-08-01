@@ -15,127 +15,27 @@ async function handleMcp(
   req: import('node:http').IncomingMessage,
   res: import('node:http').ServerResponse
 ) {
-  const { StreamableHTTPServerTransport } = await import(
-    '@modelcontextprotocol/sdk/server/streamableHttp.js'
-  );
-  const { createServer } = await import('./server.js');
-
-  const mcp = createServer();
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-  });
-
-  res.on('close', () => {
-    void transport.close();
-    void mcp.close();
-  });
-
-  try {
-    await mcp.connect(transport);
-    await transport.handleRequest(req, res);
-  } catch (err) {
-    console.error('MCP HTTP request error:', err);
-    if (!res.headersSent) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Internal MCP error' }));
-    }
-  }
+  const { default: mcpHandler } = await import('../api/mcp.js');
+  await mcpHandler(req as never, res);
 }
 
 async function main() {
   const httpServer = createHttpServer((req, res) => {
     const path = req.url?.split('?')[0];
 
-    if (req.method === 'GET' && path === '/') {
-      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end(`Hello World\nversion ${VERSION}`);
-      return;
-    }
-
-    if (req.method === 'GET' && path === '/health') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, service: 'cocoinbox-mcp', version: VERSION }));
-      return;
-    }
-
-    if (req.method === 'GET' && path === '/version') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ version: VERSION, service: 'cocoinbox-mcp' }));
-      return;
-    }
-
-    if (req.method === 'GET' && (path === '/login' || path === '/api/login')) {
-      void import('../api/login.js').then((m) => m.default(req, res));
-      return;
-    }
-
-    if (req.method === 'GET' && (path === '/authorize' || path === '/oauth/authorize')) {
-      void import('../api/oauth-authorize.js').then((m) => m.default(req, res));
-      return;
-    }
-
-    if (path === '/token' || path === '/oauth/token') {
-      const chunks: Buffer[] = [];
-      req.on('data', (c) => chunks.push(c));
-      req.on('end', () => {
-        const raw = Buffer.concat(chunks).toString('utf8');
-        (req as { body?: unknown }).body = raw;
-        void import('../api/oauth-token.js').then((m) => m.default(req as never, res));
-      });
-      return;
-    }
-
-    if (path === '/register' || path === '/oauth/register') {
-      const chunks: Buffer[] = [];
-      req.on('data', (c) => chunks.push(c));
-      req.on('end', () => {
-        const raw = Buffer.concat(chunks).toString('utf8');
-        (req as { body?: unknown }).body = raw;
-        void import('../api/oauth-register.js').then((m) => m.default(req as never, res));
-      });
-      return;
-    }
-
-    if (
-      req.method === 'GET' &&
-      (path === '/.well-known/oauth-protected-resource' ||
-        path === '/.well-known/oauth-protected-resource/mcp')
-    ) {
-      void import('../api/oauth-protected-resource.js').then((m) => m.default(req, res));
-      return;
-    }
-
-    if (
-      req.method === 'GET' &&
-      (path === '/.well-known/oauth-authorization-server' ||
-        path === '/.well-known/openid-configuration')
-    ) {
-      void import('../api/oauth-authorization-server.js').then((m) => m.default(req, res));
-      return;
-    }
-
-    if (path === '/api/auth-form') {
-      const chunks: Buffer[] = [];
-      req.on('data', (c) => chunks.push(c));
-      req.on('end', () => {
-        const raw = Buffer.concat(chunks).toString('utf8');
-        (req as { body?: unknown }).body = raw;
-        void import('../api/auth-form.js').then((m) => m.default(req as never, res));
-      });
-      return;
-    }
-
     if (path === '/mcp') {
       void handleMcp(req, res);
       return;
     }
 
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        error: 'Not found. Use /, /login, /authorize, /token, /register, /version, or /mcp',
-      })
-    );
+    // Everything else goes through the same gateway as Vercel
+    const chunks: Buffer[] = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks).toString('utf8');
+      if (raw) (req as { body?: unknown }).body = raw;
+      void import('../api/gateway.js').then((m) => m.default(req as never, res));
+    });
   });
 
   httpServer.listen(PORT, HOST, () => {

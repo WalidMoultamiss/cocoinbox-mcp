@@ -4,7 +4,7 @@ import {
   readBody,
   sendJson,
   signPayload,
-} from './lib/oauth.js';
+} from '../lib/oauth.js';
 
 /**
  * RFC 7591 Dynamic Client Registration (public clients / Claude DCR).

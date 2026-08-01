@@ -6,7 +6,7 @@ import {
   sendJson,
   verifyPayload,
   verifyPkceS256,
-} from './lib/oauth.js';
+} from '../lib/oauth.js';
 
 async function validateAccessToken(token) {
   const meRes = await fetch(`${apiBase()}/api/auth/me`, {

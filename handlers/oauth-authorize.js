@@ -1,4 +1,4 @@
-import { isAllowedRedirectUri, verifyPayload } from './lib/oauth.js';
+import { isAllowedRedirectUri, verifyPayload } from '../lib/oauth.js';
 
 function escapeHtml(s) {
   return String(s)

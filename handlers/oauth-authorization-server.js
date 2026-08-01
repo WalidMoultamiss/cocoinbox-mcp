@@ -1,4 +1,4 @@
-import { publicBase, sendJson, corsPreflight } from './lib/oauth.js';
+import { publicBase, sendJson, corsPreflight } from '../lib/oauth.js';
 
 /** RFC 8414 Authorization Server Metadata */
 export default function handler(req, res) {

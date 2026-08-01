@@ -1,4 +1,4 @@
-import { publicBase, sendJson, corsPreflight } from './lib/oauth.js';
+import { publicBase, sendJson, corsPreflight } from '../lib/oauth.js';
 
 /** RFC 9728 Protected Resource Metadata */
 export default function handler(req, res) {

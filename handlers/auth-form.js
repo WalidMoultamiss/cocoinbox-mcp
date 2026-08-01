@@ -1,5 +1,5 @@
-import { createAuthCode, apiBase } from './lib/auth-code.js';
-import { createOAuthAuthCode } from './lib/oauth.js';
+import { createAuthCode, apiBase } from '../lib/auth-code.js';
+import { createOAuthAuthCode } from '../lib/oauth.js';
 
 function readBody(req) {
   if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) return req.body;
