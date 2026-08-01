@@ -1,7 +1,8 @@
 import { createAuthCode, apiBase } from './lib/auth-code.js';
+import { createOAuthAuthCode } from './lib/oauth.js';
 
 function readBody(req) {
-  if (req.body && typeof req.body === 'object') return req.body;
+  if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) return req.body;
   if (typeof req.body === 'string') {
     try {
       if (req.body.trim().startsWith('{')) return JSON.parse(req.body);
@@ -47,13 +48,15 @@ export default async function handler(req, res) {
     const body = readBody(req);
     const email = String(body.email || '').trim();
     const password = String(body.password || '');
+    const isOauth = String(body.oauth || '') === '1';
+
     if (!email || !password) {
       res.statusCode = 400;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.end(
         page(
           'Login failed',
-          `<h1 class="err">Missing fields</h1><p><a href="/login">Back to login</a></p>`
+          `<h1 class="err">Missing fields</h1><p><a href="${isOauth ? '/authorize' : '/login'}">Back to login</a></p>`
         )
       );
       return;
@@ -71,7 +74,7 @@ export default async function handler(req, res) {
       res.end(
         page(
           'Login failed',
-          `<h1 class="err">Login failed</h1><p>${escapeHtml(loginData.error || loginData.message || 'Invalid credentials')}</p><p><a href="/login">Try again</a></p>`
+          `<h1 class="err">Login failed</h1><p>${escapeHtml(loginData.error || loginData.message || 'Invalid credentials')}</p><p><a href="${isOauth ? '/authorize' : '/login'}">Try again</a></p>`
         )
       );
       return;
@@ -93,6 +96,44 @@ export default async function handler(req, res) {
       plan_id: me.plan_id ? String(me.plan_id) : undefined,
     };
 
+    // Claude / OAuth connector flow → redirect back with authorization code
+    if (isOauth) {
+      const redirectUri = String(body.redirect_uri || '');
+      const state = String(body.state || '');
+      const clientId = String(body.client_id || '');
+      const codeChallenge = String(body.code_challenge || '');
+      const codeChallengeMethod = String(body.code_challenge_method || 'S256');
+      const scope = String(body.scope || 'mcp');
+
+      if (!redirectUri || !codeChallenge) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end(page('OAuth error', `<h1 class="err">Missing OAuth fields</h1>`));
+        return;
+      }
+
+      const oauthCode = createOAuthAuthCode({
+        token: loginData.token,
+        user,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        code_challenge: codeChallenge,
+        code_challenge_method: codeChallengeMethod,
+        scope,
+      });
+
+      const target = new URL(redirectUri);
+      target.searchParams.set('code', oauthCode);
+      if (state) target.searchParams.set('state', state);
+
+      res.statusCode = 302;
+      res.setHeader('Location', target.toString());
+      res.setHeader('Cache-Control', 'no-store');
+      res.end('');
+      return;
+    }
+
+    // Cursor flow → show pasteable auth code
     const code = createAuthCode(loginData.token, user);
 
     res.statusCode = 200;

@@ -69,6 +69,51 @@ async function main() {
       return;
     }
 
+    if (req.method === 'GET' && (path === '/authorize' || path === '/oauth/authorize')) {
+      void import('../api/oauth-authorize.js').then((m) => m.default(req, res));
+      return;
+    }
+
+    if (path === '/token' || path === '/oauth/token') {
+      const chunks: Buffer[] = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8');
+        (req as { body?: unknown }).body = raw;
+        void import('../api/oauth-token.js').then((m) => m.default(req as never, res));
+      });
+      return;
+    }
+
+    if (path === '/register' || path === '/oauth/register') {
+      const chunks: Buffer[] = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8');
+        (req as { body?: unknown }).body = raw;
+        void import('../api/oauth-register.js').then((m) => m.default(req as never, res));
+      });
+      return;
+    }
+
+    if (
+      req.method === 'GET' &&
+      (path === '/.well-known/oauth-protected-resource' ||
+        path === '/.well-known/oauth-protected-resource/mcp')
+    ) {
+      void import('../api/oauth-protected-resource.js').then((m) => m.default(req, res));
+      return;
+    }
+
+    if (
+      req.method === 'GET' &&
+      (path === '/.well-known/oauth-authorization-server' ||
+        path === '/.well-known/openid-configuration')
+    ) {
+      void import('../api/oauth-authorization-server.js').then((m) => m.default(req, res));
+      return;
+    }
+
     if (path === '/api/auth-form') {
       const chunks: Buffer[] = [];
       req.on('data', (c) => chunks.push(c));
@@ -86,7 +131,11 @@ async function main() {
     }
 
     res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Not found. Use /, /login, /version, or /mcp' }));
+    res.end(
+      JSON.stringify({
+        error: 'Not found. Use /, /login, /authorize, /token, /register, /version, or /mcp',
+      })
+    );
   });
 
   httpServer.listen(PORT, HOST, () => {

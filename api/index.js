@@ -1,5 +1,5 @@
 export default function handler(_req, res) {
-  const VERSION = 6;
+  const VERSION = 7;
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.end(`<!DOCTYPE html>
@@ -42,7 +42,7 @@ export default function handler(_req, res) {
     <h1>CocoInbox MCP</h1>
     <p>Hello World</p>
     <p>version ${VERSION}</p>
-    <p><a href="/login">Login</a> · <a href="/mcp">MCP</a> · <a href="/version">Version</a></p>
+    <p><a href="/login">Login</a> · <a href="/authorize">OAuth</a> · <a href="/mcp">MCP</a> · <a href="/version">Version</a></p>
   </main>
 </body>
 </html>`);
