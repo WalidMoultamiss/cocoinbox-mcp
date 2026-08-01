@@ -22,6 +22,7 @@ export class ApiError extends Error {
   }
 }
 
+
 async function request<T>(
   path: string,
   options: RequestInit & { auth?: boolean } = {}
