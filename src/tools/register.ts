@@ -510,41 +510,27 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'request_missing_tool',
-    'When no existing MCP tool can do what the user needs, submit a feature request to the CocoInbox backoffice. Use this instead of inventing fake tools. Saves tool name, description, and use case for the product team.',
+    'When no existing MCP tool can do what the user needs, submit an idea to their CocoInbox account (title + description). Visible on /ideas and in the admin backoffice. Do not invent fake tools — save the wish instead.',
     {
-      tool_name: z
+      title: z
         .string()
         .min(2)
-        .max(120)
-        .describe('Short snake_case or clear name for the desired tool, e.g. list_calendar_events'),
+        .max(160)
+        .describe('Short title of the idea, e.g. "List calendar events"'),
       description: z
         .string()
-        .min(10)
+        .min(5)
         .max(4000)
-        .describe('What the tool should do and why it is needed'),
-      use_case: z
-        .string()
-        .max(2000)
-        .optional()
-        .describe('Concrete user scenario that triggered this request'),
-      priority: z
-        .enum(['low', 'medium', 'high'])
-        .optional()
-        .describe('Suggested priority (default medium)'),
+        .describe('What the idea should enable and why it is needed'),
     },
-    async ({ tool_name, description, use_case, priority }) => {
+    async ({ title, description }) => {
       try {
         requireAuth();
-        const result = await api.requestMissingTool({
-          tool_name,
-          description,
-          use_case,
-          priority,
-        });
+        const result = await api.requestMissingTool({ title, description });
         return ok({
           saved: true,
           message:
-            'Tool request saved in the CocoInbox backoffice. The product team can review it under Admin → MCP Requests.',
+            'Idea saved. The user can see it in CocoInbox → Ideas (/ideas). Admins see it under Admin → MCP Requests.',
           result,
         });
       } catch (err) {
@@ -555,7 +541,7 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'list_my_tool_requests',
-    'List MCP tool feature requests previously submitted for this authenticated account.',
+    'List ideas (title + description) previously submitted for this authenticated account.',
     {},
     async () => {
       try {

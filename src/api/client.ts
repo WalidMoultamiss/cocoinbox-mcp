@@ -207,10 +207,8 @@ export async function moveMessageToFolder(
 }
 
 export type McpToolRequestInput = {
-  tool_name: string;
+  title: string;
   description: string;
-  use_case?: string;
-  priority?: 'low' | 'medium' | 'high';
 };
 
 export async function requestMissingTool(
@@ -219,10 +217,8 @@ export async function requestMissingTool(
   return request('/api/mcp/tool-requests', {
     method: 'POST',
     body: JSON.stringify({
-      tool_name: input.tool_name,
+      title: input.title,
       description: input.description,
-      use_case: input.use_case,
-      priority: input.priority || 'medium',
       source: 'mcp',
     }),
   });

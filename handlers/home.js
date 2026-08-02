@@ -1,5 +1,5 @@
 export default function handler(_req, res) {
-  const VERSION = 9;
+  const VERSION = 10;
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.end(`<!DOCTYPE html>
