@@ -205,3 +205,29 @@ export async function moveMessageToFolder(
     body: JSON.stringify({ folder }),
   });
 }
+
+export type McpToolRequestInput = {
+  tool_name: string;
+  description: string;
+  use_case?: string;
+  priority?: 'low' | 'medium' | 'high';
+};
+
+export async function requestMissingTool(
+  input: McpToolRequestInput
+): Promise<unknown> {
+  return request('/api/mcp/tool-requests', {
+    method: 'POST',
+    body: JSON.stringify({
+      tool_name: input.tool_name,
+      description: input.description,
+      use_case: input.use_case,
+      priority: input.priority || 'medium',
+      source: 'mcp',
+    }),
+  });
+}
+
+export async function listMyToolRequests(): Promise<unknown> {
+  return request('/api/mcp/tool-requests/mine', { method: 'GET' });
+}

@@ -507,4 +507,64 @@ export function registerTools(server: McpServer): void {
       }
     }
   );
+
+  server.tool(
+    'request_missing_tool',
+    'When no existing MCP tool can do what the user needs, submit a feature request to the CocoInbox backoffice. Use this instead of inventing fake tools. Saves tool name, description, and use case for the product team.',
+    {
+      tool_name: z
+        .string()
+        .min(2)
+        .max(120)
+        .describe('Short snake_case or clear name for the desired tool, e.g. list_calendar_events'),
+      description: z
+        .string()
+        .min(10)
+        .max(4000)
+        .describe('What the tool should do and why it is needed'),
+      use_case: z
+        .string()
+        .max(2000)
+        .optional()
+        .describe('Concrete user scenario that triggered this request'),
+      priority: z
+        .enum(['low', 'medium', 'high'])
+        .optional()
+        .describe('Suggested priority (default medium)'),
+    },
+    async ({ tool_name, description, use_case, priority }) => {
+      try {
+        requireAuth();
+        const result = await api.requestMissingTool({
+          tool_name,
+          description,
+          use_case,
+          priority,
+        });
+        return ok({
+          saved: true,
+          message:
+            'Tool request saved in the CocoInbox backoffice. The product team can review it under Admin → MCP Requests.',
+          result,
+        });
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  server.tool(
+    'list_my_tool_requests',
+    'List MCP tool feature requests previously submitted for this authenticated account.',
+    {},
+    async () => {
+      try {
+        requireAuth();
+        const result = await api.listMyToolRequests();
+        return ok(result);
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
 }
