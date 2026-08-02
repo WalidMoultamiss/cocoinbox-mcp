@@ -206,14 +206,13 @@ export async function moveMessageToFolder(
   });
 }
 
-export type McpToolRequestInput = {
+export type IdeaInput = {
   title: string;
   description: string;
 };
 
-export async function requestMissingTool(
-  input: McpToolRequestInput
-): Promise<unknown> {
+/** Submit an idea (title + description) to the user's CocoInbox account. */
+export async function submitIdea(input: IdeaInput): Promise<unknown> {
   return request('/api/mcp/tool-requests', {
     method: 'POST',
     body: JSON.stringify({
@@ -224,6 +223,12 @@ export async function requestMissingTool(
   });
 }
 
-export async function listMyToolRequests(): Promise<unknown> {
+/** @deprecated use submitIdea */
+export const requestMissingTool = submitIdea;
+
+export async function listMyIdeas(): Promise<unknown> {
   return request('/api/mcp/tool-requests/mine', { method: 'GET' });
 }
+
+/** @deprecated use listMyIdeas */
+export const listMyToolRequests = listMyIdeas;

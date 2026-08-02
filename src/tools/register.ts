@@ -508,49 +508,76 @@ export function registerTools(server: McpServer): void {
     }
   );
 
+  const ideaSchema = {
+    title: z
+      .string()
+      .min(2)
+      .max(160)
+      .describe('Short title of the idea, e.g. "List calendar events"'),
+    description: z
+      .string()
+      .min(5)
+      .max(4000)
+      .describe('What the idea should enable and why it is needed'),
+  };
+
+  const submitIdeaHandler = async ({
+    title,
+    description,
+  }: {
+    title: string;
+    description: string;
+  }) => {
+    try {
+      requireAuth();
+      const result = await api.submitIdea({ title, description });
+      return ok({
+        saved: true,
+        message:
+          'Idea saved. The user can see it in CocoInbox → Ideas (/ideas). Admins see it under Admin → MCP Requests.',
+        result,
+      });
+    } catch (err) {
+      return fail(err);
+    }
+  };
+
+  const listIdeasHandler = async () => {
+    try {
+      requireAuth();
+      const result = await api.listMyIdeas();
+      return ok(result);
+    } catch (err) {
+      return fail(err);
+    }
+  };
+
+  server.tool(
+    'submit_idea',
+    'Save an idea to the user\'s CocoInbox account (title + description). Same as the Ideas page on the website. Use when the user wants to note a product/feature wish, or when no existing MCP tool covers their need — do not invent fake tools.',
+    ideaSchema,
+    submitIdeaHandler
+  );
+
+  server.tool(
+    'list_my_ideas',
+    'List ideas (title + description + status) previously submitted for this authenticated account. Same data as CocoInbox → Ideas (/ideas).',
+    {},
+    listIdeasHandler
+  );
+
+  // Aliases (older names)
   server.tool(
     'request_missing_tool',
-    'When no existing MCP tool can do what the user needs, submit an idea to their CocoInbox account (title + description). Visible on /ideas and in the admin backoffice. Do not invent fake tools — save the wish instead.',
-    {
-      title: z
-        .string()
-        .min(2)
-        .max(160)
-        .describe('Short title of the idea, e.g. "List calendar events"'),
-      description: z
-        .string()
-        .min(5)
-        .max(4000)
-        .describe('What the idea should enable and why it is needed'),
-    },
-    async ({ title, description }) => {
-      try {
-        requireAuth();
-        const result = await api.requestMissingTool({ title, description });
-        return ok({
-          saved: true,
-          message:
-            'Idea saved. The user can see it in CocoInbox → Ideas (/ideas). Admins see it under Admin → MCP Requests.',
-          result,
-        });
-      } catch (err) {
-        return fail(err);
-      }
-    }
+    'Alias for submit_idea. Prefer submit_idea.',
+    ideaSchema,
+    submitIdeaHandler
   );
 
   server.tool(
     'list_my_tool_requests',
-    'List ideas (title + description) previously submitted for this authenticated account.',
+    'Alias for list_my_ideas. Prefer list_my_ideas.',
     {},
-    async () => {
-      try {
-        requireAuth();
-        const result = await api.listMyToolRequests();
-        return ok(result);
-      } catch (err) {
-        return fail(err);
-      }
-    }
+    listIdeasHandler
   );
 }

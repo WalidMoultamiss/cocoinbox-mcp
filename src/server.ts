@@ -13,7 +13,8 @@ export function createServer(): McpServer {
     name: 'cocoinbox-mcp',
     version: `${VERSION}.0.0`,
     title: 'CocoInbox',
-    description: 'CocoInbox MCP — secure ephemeral email, privacy score, and dark web tools',
+    description:
+      'CocoInbox MCP — secure ephemeral email, privacy score, dark web tools, and submit/list ideas (title + description)',
     websiteUrl: WEBSITE_URL,
     icons: [
       {
