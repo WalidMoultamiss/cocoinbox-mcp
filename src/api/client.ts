@@ -232,3 +232,121 @@ export async function listMyIdeas(): Promise<unknown> {
 
 /** @deprecated use listMyIdeas */
 export const listMyToolRequests = listMyIdeas;
+
+/* ─── CRM (private, scoped to authenticated user) ─── */
+
+export type CrmLeadInput = {
+  name: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  map_url?: string;
+  website?: string;
+  has_website?: boolean;
+  notes?: string;
+  tags?: string[];
+};
+
+export async function crmCreateGroup(input: {
+  name: string;
+  why: string;
+  source_ai?: string;
+  location?: string;
+  notes?: string;
+}): Promise<unknown> {
+  return request('/api/crm/groups', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function crmListGroups(query?: {
+  status?: string;
+  limit?: number;
+}): Promise<unknown> {
+  const params = new URLSearchParams();
+  if (query?.status) params.set('status', query.status);
+  if (query?.limit) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  return request(`/api/crm/groups${qs ? `?${qs}` : ''}`, { method: 'GET' });
+}
+
+export async function crmGetGroup(groupId: string): Promise<unknown> {
+  return request(`/api/crm/groups/${encodeURIComponent(groupId)}`, { method: 'GET' });
+}
+
+export async function crmAddLeads(groupId: string, leads: CrmLeadInput[]): Promise<unknown> {
+  return request(`/api/crm/groups/${encodeURIComponent(groupId)}/leads`, {
+    method: 'POST',
+    body: JSON.stringify({ leads }),
+  });
+}
+
+export async function crmListLeads(query?: {
+  group_id?: string;
+  status?: string;
+  with_email?: boolean;
+  limit?: number;
+}): Promise<unknown> {
+  const params = new URLSearchParams();
+  if (query?.group_id) params.set('group_id', query.group_id);
+  if (query?.status) params.set('status', query.status);
+  if (query?.with_email) params.set('with_email', '1');
+  if (query?.limit) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  return request(`/api/crm/leads${qs ? `?${qs}` : ''}`, { method: 'GET' });
+}
+
+export async function crmGenerateProspectTasks(
+  groupId: string,
+  opts?: { only_with_email?: boolean; limit?: number; created_by?: string }
+): Promise<unknown> {
+  return request(`/api/crm/groups/${encodeURIComponent(groupId)}/generate-tasks`, {
+    method: 'POST',
+    body: JSON.stringify({
+      only_with_email: opts?.only_with_email,
+      limit: opts?.limit,
+      created_by: opts?.created_by || 'mcp',
+    }),
+  });
+}
+
+export async function crmListTasks(query?: {
+  group_id?: string;
+  status?: string;
+  limit?: number;
+}): Promise<unknown> {
+  const params = new URLSearchParams();
+  if (query?.group_id) params.set('group_id', query.group_id);
+  if (query?.status) params.set('status', query.status);
+  if (query?.limit) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  return request(`/api/crm/tasks${qs ? `?${qs}` : ''}`, { method: 'GET' });
+}
+
+export async function crmUpdateLead(
+  leadId: string,
+  patch: Record<string, unknown>
+): Promise<unknown> {
+  return request(`/api/crm/leads/${encodeURIComponent(leadId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function crmUpdateTask(
+  taskId: string,
+  patch: Record<string, unknown>
+): Promise<unknown> {
+  return request(`/api/crm/tasks/${encodeURIComponent(taskId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function crmSummary(): Promise<unknown> {
+  return request('/api/crm/summary', { method: 'GET' });
+}

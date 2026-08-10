@@ -25,6 +25,18 @@ function ok(data: unknown) {
   };
 }
 
+/** Compact JSON for CRM — fewer tokens for AI agents */
+function okCompact(data: unknown) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: typeof data === 'string' ? data : JSON.stringify(data),
+      },
+    ],
+  };
+}
+
 function fail(err: unknown) {
   const message = err instanceof Error ? err.message : String(err);
   return {
@@ -579,5 +591,248 @@ export function registerTools(server: McpServer): void {
     'Alias for list_my_ideas. Prefer list_my_ideas.',
     {},
     listIdeasHandler
+  );
+
+  /* ─── CRM: lead groups → leads → prospect tasks (never auto-sends) ─── */
+
+  const leadItemSchema = z.object({
+    name: z.string().min(2).max(200).describe('Contact or place name'),
+    email: z.string().email().optional().describe('Email if found'),
+    phone: z.string().max(60).optional(),
+    company: z.string().max(200).optional().describe('Business name'),
+    address: z.string().max(400).optional(),
+    city: z.string().max(120).optional(),
+    country: z.string().max(120).optional(),
+    map_url: z.string().max(800).optional().describe('Google Maps / OSM URL'),
+    website: z.string().max(400).optional(),
+    has_website: z.boolean().optional().describe('false when no website found'),
+    notes: z.string().max(4000).optional(),
+    tags: z.array(z.string().max(40)).max(10).optional(),
+  });
+
+  server.tool(
+    'crm_summary',
+    'Compact CRM counts for this user (groups, leads, tasks todo). Start here to see state without loading full lists.',
+    {},
+    async () => {
+      try {
+        requireAuth();
+        return okCompact(await api.crmSummary());
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  server.tool(
+    'crm_create_group',
+    'Create a lead group (campaign). REQUIRED: name + why (outreach reason, e.g. "car garages without websites in Casablanca → pitch website build"). Also set source_ai (claude|grok|cursor|manual) and optional location. Returns group id for crm_add_leads.',
+    {
+      name: z.string().min(2).max(160).describe('Group name, e.g. "Garages Casablanca sans site"'),
+      why: z
+        .string()
+        .min(8)
+        .max(2000)
+        .describe(
+          'Why these leads exist and what to offer. Used when generating prospect email tasks.'
+        ),
+      source_ai: z
+        .string()
+        .max(80)
+        .optional()
+        .describe('Which AI created this group: claude | grok | cursor | manual'),
+      location: z.string().max(200).optional().describe('e.g. Casablanca, Morocco'),
+      notes: z.string().max(4000).optional(),
+    },
+    async (args) => {
+      try {
+        requireAuth();
+        const result = await api.crmCreateGroup({
+          name: args.name,
+          why: args.why,
+          source_ai: args.source_ai || 'mcp',
+          location: args.location,
+          notes: args.notes,
+        });
+        return okCompact({
+          ...(result as object),
+          next: 'Call crm_add_leads with this group.id and up to 25 leads, then crm_generate_prospect_tasks.',
+        });
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  server.tool(
+    'crm_list_groups',
+    'List your CRM lead groups (compact). Filter by status: active|paused|archived.',
+    {
+      status: z.enum(['active', 'paused', 'archived']).optional(),
+      limit: z.number().int().min(1).max(50).optional(),
+    },
+    async ({ status, limit }) => {
+      try {
+        requireAuth();
+        return okCompact(await api.crmListGroups({ status, limit }));
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  server.tool(
+    'crm_get_group',
+    'Get one lead group by id (includes why / source_ai / location).',
+    {
+      group_id: z.string().min(1).describe('Group id from crm_create_group or crm_list_groups'),
+    },
+    async ({ group_id }) => {
+      try {
+        requireAuth();
+        return okCompact(await api.crmGetGroup(group_id));
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  server.tool(
+    'crm_add_leads',
+    'Add up to 25 leads to a group you own. Include name, email, phone, company, address, city, map_url, website, has_website=false when no site. Private to this user — no cross-user leak.',
+    {
+      group_id: z.string().min(1),
+      leads: z.array(leadItemSchema).min(1).max(25),
+    },
+    async ({ group_id, leads }) => {
+      try {
+        requireAuth();
+        const result = await api.crmAddLeads(group_id, leads);
+        return okCompact({
+          ...(result as object),
+          next: 'If leads have emails, call crm_generate_prospect_tasks(group_id). Do NOT auto-send — review drafts then send_email.',
+        });
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  server.tool(
+    'crm_list_leads',
+    'List your leads (optionally by group_id). Set with_email=true to only leads that can get prospect emails.',
+    {
+      group_id: z.string().optional(),
+      status: z.string().optional(),
+      with_email: z.boolean().optional(),
+      limit: z.number().int().min(1).max(50).optional(),
+    },
+    async (args) => {
+      try {
+        requireAuth();
+        return okCompact(await api.crmListLeads(args));
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  server.tool(
+    'crm_generate_prospect_tasks',
+    'For a group: create email_prospect tasks for leads that have emails. Each task brief + draft uses group.why. Never sends email — returns drafts. After review, send with send_email and mark task done via crm_update_task.',
+    {
+      group_id: z.string().min(1),
+      only_with_email: z.boolean().optional().describe('Default true'),
+      limit: z.number().int().min(1).max(25).optional(),
+    },
+    async ({ group_id, only_with_email, limit }) => {
+      try {
+        requireAuth();
+        return okCompact(
+          await api.crmGenerateProspectTasks(group_id, {
+            only_with_email,
+            limit,
+            created_by: 'mcp',
+          })
+        );
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  server.tool(
+    'crm_list_tasks',
+    'List your CRM tasks (todo/doing/done). Filter by group_id and status.',
+    {
+      group_id: z.string().optional(),
+      status: z.enum(['todo', 'doing', 'done', 'cancelled']).optional(),
+      limit: z.number().int().min(1).max(50).optional(),
+    },
+    async (args) => {
+      try {
+        requireAuth();
+        return okCompact(await api.crmListTasks(args));
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  server.tool(
+    'crm_update_lead',
+    'Update one of your leads (status, email, notes, etc.). Ownership enforced server-side.',
+    {
+      lead_id: z.string().min(1),
+      name: z.string().optional(),
+      email: z.string().optional(),
+      phone: z.string().optional(),
+      company: z.string().optional(),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      country: z.string().optional(),
+      map_url: z.string().optional(),
+      website: z.string().optional(),
+      has_website: z.boolean().optional(),
+      notes: z.string().optional(),
+      status: z
+        .enum(['new', 'contacted', 'replied', 'qualified', 'won', 'lost', 'skipped'])
+        .optional(),
+    },
+    async ({ lead_id, ...patch }) => {
+      try {
+        requireAuth();
+        const clean = Object.fromEntries(
+          Object.entries(patch).filter(([, v]) => v !== undefined)
+        );
+        return okCompact(await api.crmUpdateLead(lead_id, clean));
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  server.tool(
+    'crm_update_task',
+    'Update a CRM task status or draft. After sending prospect email via send_email, set status=done.',
+    {
+      task_id: z.string().min(1),
+      status: z.enum(['todo', 'doing', 'done', 'cancelled']).optional(),
+      title: z.string().optional(),
+      brief: z.string().optional(),
+      draft_subject: z.string().optional(),
+      draft_body: z.string().optional(),
+    },
+    async ({ task_id, ...patch }) => {
+      try {
+        requireAuth();
+        const clean = Object.fromEntries(
+          Object.entries(patch).filter(([, v]) => v !== undefined)
+        );
+        return okCompact(await api.crmUpdateTask(task_id, clean));
+      } catch (err) {
+        return fail(err);
+      }
+    }
   );
 }
