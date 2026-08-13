@@ -149,17 +149,17 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'get_current_user',
-    'Return the authenticated user profile from GET /api/auth/me.',
+    'Return the authenticated user profile from GET /api/auth/me (includes company when set).',
     {},
     async () => {
       try {
         const { token } = requireAuth();
-        const me = normalizeUser(
-          (await api.getMe(token)) as unknown as Record<string, unknown>
-        );
+        const raw = (await api.getMe(token)) as unknown as Record<string, unknown>;
+        const me = normalizeUser(raw);
         setAuth(token, me);
         return ok({
           user: me,
+          company: raw.company ?? null,
           selectedEmailId: getSession().selectedEmailId,
           selectedEmailAddress: getSession().selectedEmailAddress,
         });
@@ -949,6 +949,67 @@ When presenting the result:
           Object.entries(patch).filter(([, v]) => v !== undefined)
         );
         return okCompact(await api.crmUpdateTask(task_id, clean));
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  /* ─── Company profile (sender identity for refined prospecting) ─── */
+
+  server.tool(
+    'get_company_profile',
+    `Get the user's company profile + generated report (name, what they do, offer, audience).
+
+When presenting:
+- Summarize the company clearly (name, what they do, offer).
+- If configured=false, tell the user to fill Profil → Entreprise or call update_company_profile.
+- Use this before creating CRM groups / prospect tasks so outreach matches the real business.`,
+    {},
+    async () => {
+      try {
+        requireAuth();
+        return okCompact(await api.getCompanyProfile());
+      } catch (err) {
+        return fail(err);
+      }
+    }
+  );
+
+  server.tool(
+    'update_company_profile',
+    `Save/update the sender company profile. Regenerates an AI report used to refine CRM prospect emails.
+
+Required: name OR description. Prefer filling name, description (what you do), and offer (what you pitch).`,
+    {
+      name: z.string().min(2).max(160).optional().describe('Company / brand name'),
+      description: z
+        .string()
+        .min(8)
+        .max(2000)
+        .optional()
+        .describe('What the company does'),
+      offer: z
+        .string()
+        .max(2000)
+        .optional()
+        .describe('What you sell / pitch to leads'),
+      industry: z.string().max(120).optional(),
+      website: z.string().max(400).optional(),
+      location: z.string().max(200).optional(),
+      audience: z.string().max(500).optional().describe('Who you sell to'),
+    },
+    async (args) => {
+      try {
+        requireAuth();
+        if (!args.name && !args.description) {
+          return fail(new Error('Provide at least name or description'));
+        }
+        const result = await api.updateCompanyProfile(args);
+        return okCompact({
+          ...(result as object),
+          next: 'Call crm_create_group / crm_generate_prospect_tasks — drafts will use this company report.',
+        });
       } catch (err) {
         return fail(err);
       }

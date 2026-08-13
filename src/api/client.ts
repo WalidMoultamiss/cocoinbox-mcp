@@ -350,3 +350,26 @@ export async function crmUpdateTask(
 export async function crmSummary(): Promise<unknown> {
   return request('/api/crm/summary', { method: 'GET' });
 }
+
+/* ─── Company profile (sender identity for prospecting) ─── */
+
+export type CompanyProfileInput = {
+  name?: string;
+  description?: string;
+  offer?: string;
+  industry?: string;
+  website?: string;
+  location?: string;
+  audience?: string;
+};
+
+export async function getCompanyProfile(): Promise<unknown> {
+  return request('/api/auth/me/company', { method: 'GET' });
+}
+
+export async function updateCompanyProfile(input: CompanyProfileInput): Promise<unknown> {
+  return request('/api/auth/me/company', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
