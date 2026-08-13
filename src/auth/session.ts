@@ -51,7 +51,7 @@ export function selectEmail(emailId: string, emailAddress?: string | null): void
 export function requireAuth(): { token: string; user: SessionUser } {
   if (!session.token) {
     throw new Error(
-      'Not authenticated. Call the login tool first with email and password.'
+      'Not authenticated. Call the login or connect tool to open the secure portal.'
     );
   }
   if (!session.user) {

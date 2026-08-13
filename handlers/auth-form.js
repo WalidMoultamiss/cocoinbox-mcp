@@ -133,21 +133,49 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Cursor flow → show pasteable auth code
+    // Cursor / agent flow → success page with one-click copy (fallback to paste in chat)
     const code = createAuthCode(loginData.token, user);
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.end(
-      page(
-        'Login success',
-        `<h1>You're signed in</h1>
-         <p>Signed in as <strong>${escapeHtml(user.name || user.email)}</strong>. Copy this auth code and tell Cursor to run <code>complete_login</code> with it:</p>
-         <textarea readonly onclick="this.select()">${escapeHtml(code)}</textarea>
-         <p>The code expires in 10 minutes. You can close this tab after pasting it.</p>`
-      )
-    );
+    res.end(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Connected — CocoInbox</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:"Segoe UI",system-ui,sans-serif;background:radial-gradient(1200px 600px at 10% 0%,#dce9f5,#f4f1eb 55%,#efe8dc);color:#14212b}
+  main{width:min(440px,92vw);padding:2rem;background:rgba(255,255,255,.92);border:1px solid rgba(20,33,43,.08);box-shadow:0 18px 50px rgba(20,33,43,.08)}
+  h1{margin:0 0 .5rem;font-size:1.45rem;letter-spacing:-.02em}
+  p{color:#4a5a66;line-height:1.45;margin:0 0 1rem}
+  .ok{display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:700;color:#0f6b4c;background:#e6f6ef;padding:.35rem .65rem;border-radius:999px;margin-bottom:1rem}
+  textarea{width:100%;min-height:5.5rem;padding:.75rem;border:1px solid #c9d3db;font-family:ui-monospace,Consolas,monospace;font-size:.72rem;resize:vertical}
+  button{margin-top:.75rem;width:100%;padding:.85rem 1rem;border:0;background:#14212b;color:#fff;font-weight:600;cursor:pointer}
+  button:hover{background:#1f6f8b}
+  .hint{margin-top:1rem;font-size:.8rem;color:#6a7a86}
+</style></head><body><main>
+  <div class="ok">Connected</div>
+  <h1>You're signed in</h1>
+  <p>Signed in as <strong>${escapeHtml(user.name || user.email)}</strong>.</p>
+  <p>If Cursor/Claude did not connect automatically, copy this one-time code and paste it in the chat:</p>
+  <textarea id="code" readonly>${escapeHtml(code)}</textarea>
+  <button type="button" id="copy">Copy code</button>
+  <p class="hint">You can close this window after copying. Code expires in 10 minutes.</p>
+  <script>
+    const ta = document.getElementById('code');
+    const btn = document.getElementById('copy');
+    btn.addEventListener('click', async () => {
+      ta.select();
+      try {
+        await navigator.clipboard.writeText(ta.value);
+        btn.textContent = 'Copied';
+      } catch {
+        document.execCommand('copy');
+        btn.textContent = 'Copied';
+      }
+    });
+    ta.focus(); ta.select();
+  </script>
+</main></body></html>`);
   } catch (err) {
     res.statusCode = 500;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

@@ -13,7 +13,7 @@ import {
   selectEmail,
   setAuth,
 } from '../auth/session.js';
-import { asList, clip, tablePayload } from '../present.js';
+import { asList, clip, isAuthError, loginPortalPayload, tablePayload } from '../present.js';
 
 function ok(data: unknown) {
   return {
@@ -46,6 +46,37 @@ function fail(err: unknown) {
   };
 }
 
+async function openLoginPortal(
+  server: McpServer,
+  reason?: string
+): Promise<ReturnType<typeof okCompact>> {
+  const loginUrl = `${getMcpPublicUrl()}/login`;
+  let portalOpened = false;
+  try {
+    await server.server.elicitInput({
+      mode: 'url',
+      message: 'Sign in to CocoInbox (secure window). Passwords stay in the form — not in chat.',
+      elicitationId: newElicitationId(),
+      url: loginUrl,
+    });
+    portalOpened = true;
+  } catch {
+    // Client may not support URL elicitation — still return the portal card + link.
+  }
+  return okCompact(
+    loginPortalPayload({
+      loginUrl,
+      portalOpened,
+      reason,
+    })
+  );
+}
+
+async function catchToolAuth(server: McpServer, err: unknown, reason: string) {
+  if (isAuthError(err)) return openLoginPortal(server, reason);
+  return fail(err);
+}
+
 function normalizeUser(raw: Record<string, unknown>) {
   const id = String(raw.id ?? raw._id ?? '');
   return {
@@ -64,47 +95,55 @@ function folderNameForAddress(emailAddress: string, customName?: string): string
 }
 
 export function registerTools(server: McpServer): void {
+  const connectHandler = async () => {
+    return openLoginPortal(server, 'connect');
+  };
+
   server.tool(
     'login',
-    'Open the CocoInbox login FORM in the browser (do not ask the user to type password in chat). After the form, call complete_login with the auth code shown on the page.',
+    `Open the CocoInbox secure login portal (browser). Prefer this over asking for passwords in chat.
+
+When presenting the result:
+- Show a short connect card with the login link/button.
+- Do NOT write multi-step "copy auth code" instructions.
+- If portal_opened is true, the window should already be open.
+- If the user later pastes a one-time code, call complete_login({ code }).
+Clients with MCP OAuth can also use the built-in Authenticate / mcp_auth flow instead.`,
     {},
-    async () => {
-      const loginUrl = `${getMcpPublicUrl()}/login`;
-      try {
-        await server.server.elicitInput({
-          mode: 'url',
-          message:
-            'Open the CocoInbox login form, sign in, then copy the auth code and call complete_login.',
-          elicitationId: newElicitationId(),
-          url: loginUrl,
-        });
-      } catch {
-        // Client may not support URL elicitation — still return the link.
-      }
-      return ok({
-        action: 'open_login_form',
-        loginUrl,
-        next: 'After submitting the form, copy the auth code and call complete_login({ code }).',
-        note: 'Passwords are never typed in chat — use the secure browser form.',
-      });
-    }
+    connectHandler
+  );
+
+  server.tool(
+    'connect',
+    'Alias for login — open the CocoInbox secure connect portal. Preferred name for "log me in" / "get user" when not authenticated.',
+    {},
+    connectHandler
   );
 
   server.tool(
     'complete_login',
-    'Finish browser-form login by pasting the auth code shown on the login success page.',
+    'Finish browser login only when the user pastes the one-time auth code from the success page (fallback if OAuth/portal did not auto-connect).',
     {
-      code: z.string().min(10).describe('Auth code from the CocoInbox MCP login form success page'),
+      code: z.string().min(10).describe('One-time auth code from the CocoInbox login success page'),
     },
     async ({ code }) => {
       try {
         const payload = verifyAuthCode(code);
         setAuth(payload.token, payload.user);
-        return ok({
+        return okCompact({
+          content: {
+            type: 'card',
+            title: 'Connected',
+            fields: [
+              { label: 'Email', value: payload.user.email },
+              { label: 'Name', value: payload.user.name || '—' },
+            ],
+          },
           authenticated: true,
           user: getSession().user,
           apiBaseUrl: api.getApiBaseUrl(),
-          hint: 'Logged in via form. Next: list_emails, get_privacy_score, scan_dark_web, create_folder…',
+          _present:
+            'Confirm connection in one short sentence. Do not dump tokens or raw JSON.',
         });
       } catch (err) {
         return fail(err);
@@ -114,7 +153,7 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'login_with_password',
-    'Fallback programmatic login (prefer the login form tool). Use only if the user explicitly pastes credentials.',
+    'Fallback programmatic login (prefer login/connect portal or MCP OAuth). Use only if the user explicitly pastes credentials.',
     {
       email: z.string().email(),
       password: z.string().min(1),
@@ -126,7 +165,7 @@ export function registerTools(server: McpServer): void {
           (await api.getMe(token)) as unknown as Record<string, unknown>
         );
         setAuth(token, { ...me, roles: roles ?? me.roles });
-        return ok({
+        return okCompact({
           authenticated: true,
           user: getSession().user,
           apiBaseUrl: api.getApiBaseUrl(),
@@ -143,13 +182,15 @@ export function registerTools(server: McpServer): void {
     {},
     async () => {
       clearAuth();
-      return ok({ authenticated: false });
+      return okCompact({ authenticated: false });
     }
   );
 
   server.tool(
     'get_current_user',
-    'Return the authenticated user profile from GET /api/auth/me (includes company when set).',
+    `Return the authenticated user profile (includes company when set).
+
+If not connected: opens the secure login portal automatically and returns a login_portal card — present that card, do not invent multi-step paste instructions.`,
     {},
     async () => {
       try {
@@ -157,13 +198,27 @@ export function registerTools(server: McpServer): void {
         const raw = (await api.getMe(token)) as unknown as Record<string, unknown>;
         const me = normalizeUser(raw);
         setAuth(token, me);
-        return ok({
+        return okCompact({
+          content: {
+            type: 'card',
+            title: 'CocoInbox user',
+            fields: [
+              { label: 'Name', value: me.name || '—' },
+              { label: 'Email', value: me.email },
+              { label: 'Plan', value: me.plan_id || '—' },
+            ],
+          },
           user: me,
           company: raw.company ?? null,
           selectedEmailId: getSession().selectedEmailId,
           selectedEmailAddress: getSession().selectedEmailAddress,
+          _present:
+            'Show a short user card. Include company summary if present. No raw JSON unless asked.',
         });
       } catch (err) {
+        if (isAuthError(err)) {
+          return openLoginPortal(server, 'get_current_user');
+        }
         return fail(err);
       }
     }
@@ -171,20 +226,25 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'auth_status',
-    'Show whether this MCP process is authenticated and which From address is selected.',
+    'Show whether this MCP process is authenticated. If not, returns a login_portal card (call connect/login or open the URL).',
     {},
     async () => {
       const s = getSession();
-      return ok({
-        authenticated: Boolean(s.token && s.user),
-        apiBaseUrl: api.getApiBaseUrl(),
-        loginFormUrl: `${getMcpPublicUrl()}/login`,
-        user: s.user
-          ? { id: s.user.id, email: s.user.email, name: s.user.name, plan_id: s.user.plan_id }
-          : null,
-        selectedEmailId: s.selectedEmailId,
-        selectedEmailAddress: s.selectedEmailAddress,
-      });
+      if (s.token && s.user) {
+        return okCompact({
+          authenticated: true,
+          apiBaseUrl: api.getApiBaseUrl(),
+          user: {
+            id: s.user.id,
+            email: s.user.email,
+            name: s.user.name,
+            plan_id: s.user.plan_id,
+          },
+          selectedEmailId: s.selectedEmailId,
+          selectedEmailAddress: s.selectedEmailAddress,
+        });
+      }
+      return openLoginPortal(server, 'auth_status');
     }
   );
 
@@ -198,7 +258,7 @@ export function registerTools(server: McpServer): void {
         const score = await api.getPrivacyScore();
         return ok(score);
       } catch (err) {
-        return fail(err);
+        return catchToolAuth(server, err, 'get_privacy_score');
       }
     }
   );
@@ -620,7 +680,7 @@ export function registerTools(server: McpServer): void {
         requireAuth();
         return okCompact(await api.crmSummary());
       } catch (err) {
-        return fail(err);
+        return catchToolAuth(server, err, 'crm_summary');
       }
     }
   );
@@ -971,7 +1031,7 @@ When presenting:
         requireAuth();
         return okCompact(await api.getCompanyProfile());
       } catch (err) {
-        return fail(err);
+        return catchToolAuth(server, err, 'get_company_profile');
       }
     }
   );

@@ -60,7 +60,7 @@ const LOGIN_HTML = `<!DOCTYPE html>
       <input id="password" name="password" type="password" autocomplete="current-password" required />
       <button type="submit">Sign in</button>
     </form>
-    <p class="hint">After login you’ll get a one-time auth code to paste into Cursor via <code>complete_login</code>.</p>
+    <p class="hint">Prefer one-click connect? Use <strong>Authenticate</strong> / OAuth in Cursor or Claude when available. Otherwise you’ll get a one-time code after sign-in.</p>
   </main>
 </body>
 </html>`;
