@@ -7,6 +7,7 @@ Yes. If you're using **MCP (Model Context Protocol)** to expose your API to Clau
 
 Instead of making your MCP tool return raw API data like:
 
+
 ```json
 {
   "users": [
