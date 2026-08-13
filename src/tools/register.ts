@@ -13,6 +13,7 @@ import {
   selectEmail,
   setAuth,
 } from '../auth/session.js';
+import { asList, clip, tablePayload } from '../present.js';
 
 function ok(data: unknown) {
   return {
@@ -666,7 +667,13 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'crm_list_groups',
-    'List your CRM lead groups (compact). Filter by status: active|paused|archived.',
+    `List CRM lead groups (token-friendly table). Filter: status active|paused|archived.
+
+When presenting the result:
+- Display as a Markdown table using content.columns / content.rows.
+- Do not output raw JSON unless the user asks.
+- For empty results, show content.empty.
+- Keep why short; full why is in crm_get_group.`,
     {
       status: z.enum(['active', 'paused', 'archived']).optional(),
       limit: z.number().int().min(1).max(50).optional(),
@@ -674,7 +681,36 @@ export function registerTools(server: McpServer): void {
     async ({ status, limit }) => {
       try {
         requireAuth();
-        return okCompact(await api.crmListGroups({ status, limit }));
+        const raw = await api.crmListGroups({ status, limit });
+        const groups = asList<Record<string, unknown>>(raw, 'groups');
+        return okCompact(
+          tablePayload({
+            title: 'CRM lead groups',
+            columns: [
+              { key: 'id', label: 'ID' },
+              { key: 'name', label: 'Name' },
+              { key: 'why', label: 'Why' },
+              { key: 'source_ai', label: 'AI' },
+              { key: 'location', label: 'Location' },
+              { key: 'leads', label: 'Leads' },
+              { key: 'status', label: 'Status' },
+            ],
+            rows: groups.map((g) => ({
+              id: clip(g.id, 40),
+              name: clip(g.name, 60),
+              why: clip(g.why, 80),
+              source_ai: clip(g.source_ai, 20),
+              location: clip(g.location, 40) || '—',
+              leads: Number(g.lead_count ?? 0),
+              status: clip(g.status, 20),
+            })),
+            empty: 'No lead groups yet. Create one with crm_create_group (name + why).',
+            meta: {
+              count: groups.length,
+              next: 'crm_list_leads({ group_id }) or crm_get_group({ group_id })',
+            },
+          })
+        );
       } catch (err) {
         return fail(err);
       }
@@ -720,7 +756,13 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'crm_list_leads',
-    'List your leads (optionally by group_id). Set with_email=true to only leads that can get prospect emails.',
+    `List CRM leads as a table (optional group_id / with_email / status).
+
+When presenting the result:
+- Display as a Markdown table using content.columns / content.rows.
+- Do not output raw JSON unless the user asks.
+- For empty results, show content.empty.
+- Prefer company + name; show "sans site" when has_website is false.`,
     {
       group_id: z.string().optional(),
       status: z.string().optional(),
@@ -730,7 +772,47 @@ export function registerTools(server: McpServer): void {
     async (args) => {
       try {
         requireAuth();
-        return okCompact(await api.crmListLeads(args));
+        const raw = await api.crmListLeads(args);
+        const leads = asList<Record<string, unknown>>(raw, 'leads');
+        return okCompact(
+          tablePayload({
+            title: args.group_id ? `Leads · group ${args.group_id}` : 'CRM leads',
+            columns: [
+              { key: 'id', label: 'ID' },
+              { key: 'name', label: 'Name' },
+              { key: 'company', label: 'Company' },
+              { key: 'email', label: 'Email' },
+              { key: 'city', label: 'City' },
+              { key: 'website', label: 'Website' },
+              { key: 'has_website', label: 'Has site' },
+              { key: 'status', label: 'Status' },
+              { key: 'map', label: 'Map' },
+            ],
+            rows: leads.map((l) => ({
+              id: clip(l.id, 40),
+              name: clip(l.name, 40),
+              company: clip(l.company, 40) || '—',
+              email: clip(l.email, 60) || '—',
+              city: clip(
+                [l.city, l.country].filter((x) => x).map(String).join(', '),
+                40
+              ) || '—',
+              website: clip(l.website, 40) || '—',
+              has_website: l.has_website ? 'yes' : 'no',
+              status: clip(l.status, 20),
+              map: clip(l.map_url, 50) || '—',
+            })),
+            empty: args.with_email
+              ? 'No leads with email. Add emails via crm_add_leads / crm_update_lead.'
+              : 'No leads. Add with crm_add_leads.',
+            meta: {
+              count: leads.length,
+              group_id: args.group_id || null,
+              with_email: !!args.with_email,
+              next: 'crm_generate_prospect_tasks({ group_id }) for leads with email',
+            },
+          })
+        );
       } catch (err) {
         return fail(err);
       }
@@ -763,7 +845,13 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'crm_list_tasks',
-    'List your CRM tasks (todo/doing/done). Filter by group_id and status.',
+    `List CRM tasks as a table (optional group_id / status todo|doing|done|cancelled).
+
+When presenting the result:
+- Display as a Markdown table using content.columns / content.rows.
+- Do not output raw JSON unless the user asks.
+- For empty results, show content.empty.
+- After sending a prospect email with send_email, mark the task done via crm_update_task.`,
     {
       group_id: z.string().optional(),
       status: z.enum(['todo', 'doing', 'done', 'cancelled']).optional(),
@@ -772,7 +860,38 @@ export function registerTools(server: McpServer): void {
     async (args) => {
       try {
         requireAuth();
-        return okCompact(await api.crmListTasks(args));
+        const raw = await api.crmListTasks(args);
+        const tasks = asList<Record<string, unknown>>(raw, 'tasks');
+        return okCompact(
+          tablePayload({
+            title: args.group_id ? `Tasks · group ${args.group_id}` : 'CRM tasks',
+            columns: [
+              { key: 'id', label: 'ID' },
+              { key: 'title', label: 'Title' },
+              { key: 'type', label: 'Type' },
+              { key: 'status', label: 'Status' },
+              { key: 'draft_subject', label: 'Draft subject' },
+              { key: 'lead_id', label: 'Lead' },
+              { key: 'created_by', label: 'By' },
+            ],
+            rows: tasks.map((t) => ({
+              id: clip(t.id, 40),
+              title: clip(t.title, 60),
+              type: clip(t.type, 24),
+              status: clip(t.status, 16),
+              draft_subject: clip(t.draft_subject, 50) || '—',
+              lead_id: clip(t.lead_id, 40) || '—',
+              created_by: clip(t.created_by, 16),
+            })),
+            empty: 'No tasks. Generate with crm_generate_prospect_tasks({ group_id }).',
+            meta: {
+              count: tasks.length,
+              group_id: args.group_id || null,
+              status: args.status || null,
+              next: 'Review draft → send_email → crm_update_task({ task_id, status: "done" })',
+            },
+          })
+        );
       } catch (err) {
         return fail(err);
       }
